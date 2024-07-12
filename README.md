@@ -12,6 +12,7 @@ THIS SOFTWARE LISTS ALL AUDIO DEVICES, SOME MIGHT CAUSE A BLUESCREEN/KERNEL PANI
 ## Usage Tipps
 - Select only "Loopback or Digital Audio Interface" Devices to make sure it works and won´t bluescreen.
 - Select a device with more than 40000Hz because a FFT Function can only calculate half the samplingrate.
+- You can set most of the Virtual Devices to 192kHz Sampling Rate, if you do that you can set the "zeroPaddingFactor" to 0 in /config/audio.js because 192kHz is more than enoth spacial resolution.
 
 # Info
 For now the Software runs with a Target FPS of 30, 60 or even 78 FPS are possible if you only draw very little.
