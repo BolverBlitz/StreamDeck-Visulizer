@@ -1,0 +1,36 @@
+{
+  "name": "streamdeck-visulizer",
+  "version": "B-1.0.0",
+  "main": "index.js",
+  "author": "BolverBlitz",
+  "license": "MIT",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "_moduleAliases": {
+    "@src": "./src",
+    "@lib": "./lib",
+    "@api": "./api",
+    "@static_api": "./static_api",
+    "@middleware": "./middleware",
+    "@config": "./config",
+    "@e2etest": "./e2e-test/*"
+  },
+  "dependencies": {
+    "@elgato-stream-deck/node": "^6.0.0",
+    "@julusian/jpeg-turbo": "^2.1.0",
+    "canvas": "^3.0.0-rc2",
+    "dotenv": "^16.4.5",
+    "dsp.js": "^1.0.1",
+    "fft-js": "^0.0.12",
+    "hyper-express": "^6.16.4",
+    "megahash": "^1.0.5",
+    "module-alias": "^2.2.3",
+    "naudiodon": "^2.3.6",
+    "ws": "^8.18.0"
+  }
+}

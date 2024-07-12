@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Waveform Visualization</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+      #container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      #waveformCanvas {
+        flex: 1;
+      }
+      #spectrumCanvas {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <canvas id="waveformCanvas"></canvas>
+      <canvas id="spectrumCanvas"></canvas>
+    </div>
+
+    <script>
+      const waveformCanvas = document.getElementById("waveformCanvas");
+      const spectrumCanvas = document.getElementById("spectrumCanvas");
+      const waveformCtx = waveformCanvas.getContext("2d");
+      const spectrumCtx = spectrumCanvas.getContext("2d");
+      let websocket;
+      let peaks = [];
+
+      function resizeCanvas() {
+        waveformCanvas.width = window.innerWidth;
+        waveformCanvas.height = window.innerHeight / 2;
+        spectrumCanvas.width = window.innerWidth;
+        spectrumCanvas.height = window.innerHeight / 2;
+      }
+
+      const calculateFrameSize = (sampleRate, fps) => {
+        let frameSize = sampleRate / fps;
+
+        // If frameSize is below 1024, set it to 1024
+        if (frameSize < 1024) {
+          frameSize = 1024;
+        } else {
+          // If frameSize is not a power of 2, round up to the next power of 2
+          frameSize = Math.pow(2, Math.ceil(Math.log(frameSize) / Math.log(2)));
+        }
+
+        return frameSize;
+      };
+
+      function normalizeAndCenterWaveform(waveform) {
+        const min = Math.min(...waveform);
+        const max = Math.max(...waveform);
+        const range = max - min;
+        return waveform.map((value) => (value - min) / range);
+      }
+
+      function connectWebSocket() {
+        websocket = new WebSocket("ws://localhost:7123/audioStream");
+
+        websocket.onopen = function () {
+          const sampleRate = 44100;
+          const frameSize = calculateFrameSize(sampleRate, 30);
+          websocket.send(JSON.stringify({ type: "subscribe", data: { sampleRate: sampleRate, frameSize: frameSize, audioDeviceID: 5 } }));
+          console.log("WebSocket connection established");
+        };
+
+        websocket.onmessage = function (event) {
+          const { data } = JSON.parse(event.data);
+          plotWaveform(data.waveform);
+          drawSpectrum(data);
+        };
+
+        websocket.onclose = function () {
+          console.log("WebSocket connection closed");
+          setTimeout(connectWebSocket, 1000); // Reconnect after 1 second
+        };
+
+        websocket.onerror = function (error) {
+          console.error("WebSocket error:", error);
+        };
+      }
+
+      function plotWaveform(waveform) {
+        waveform = normalizeAndCenterWaveform(waveform);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+
+        waveformCtx.beginPath();
+        waveformCtx.moveTo(0, waveformCanvas.height / 2);
+
+        for (let i = 0; i < waveform.length; i++) {
+          const x = (i / waveform.length) * waveformCanvas.width;
+          const y = ((1 - waveform[i]) * waveformCanvas.height) / 2;
+          waveformCtx.lineTo(x, y);
+        }
+
+        waveformCtx.stroke();
+      }
+
+      function createGradientColor(barHeight) {
+        let gradient = spectrumCtx.createLinearGradient(0, 0, 0, spectrumCanvas.height);
+        gradient.addColorStop(0, "rgb(255,0,0)"); // Peak color
+        gradient.addColorStop(0.5, "rgb(255,255,0"); // Mid color
+        gradient.addColorStop(1, "rgb(0,255,0)"); // Low color
+        return gradient;
+      }
+
+      function drawSpectrum(data) {
+        const { analyzer, AmplituteMultiplayer } = data;
+        
+        // Filter out bars with 0 amplitude
+        let filteredData = analyzer.filter((amp) => amp > 0);
+
+        // Clear the canvas before each draw
+        spectrumCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
+
+        // Determine the width of each bar
+        let barWidth = spectrumCanvas.width / filteredData.length;
+
+        // Iterate through the filtered data to draw each bar
+        for (let i = 0; i < filteredData.length; i++) {
+          // Determine the height of the bar based on the data
+          let barHeight = filteredData[i] * AmplituteMultiplayer;
+
+          // Determine the position of the bar on the canvas
+          let x = barWidth * i;
+          let y = spectrumCanvas.height - barHeight;
+
+          // Set the bar color as a gradient
+          spectrumCtx.fillStyle = createGradientColor(barHeight);
+
+          // Draw the bar
+          spectrumCtx.fillRect(x, y, barWidth, barHeight);
+
+          // Update the peak value
+          if (peaks[i] === undefined || barHeight > peaks[i]) {
+            peaks[i] = barHeight;
+          }
+
+          // Draw the peak line
+          spectrumCtx.strokeStyle = "#FF0000"; // Peak color
+          spectrumCtx.beginPath();
+          spectrumCtx.moveTo(x, spectrumCanvas.height - peaks[i]);
+          spectrumCtx.lineTo(x + barWidth, spectrumCanvas.height - peaks[i]);
+          spectrumCtx.stroke();
+
+          // Reduce the peak value slowly
+          peaks[i] *= 0.98;
+        }
+      }
+
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+      connectWebSocket();
+    </script>
+  </body>
+</html>
