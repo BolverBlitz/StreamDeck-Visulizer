@@ -30,6 +30,7 @@
   </head>
   <body>
     <div id="container">
+      <div id="audio_values"></div>
       <canvas id="waveformCanvas"></canvas>
       <canvas id="spectrumCanvas"></canvas>
     </div>
@@ -84,6 +85,7 @@
           const { data } = JSON.parse(event.data);
           plotWaveform(data.waveform);
           drawSpectrum(data);
+          document.getElementById("audio_values").innerText = `Avrage frequency: ${data.averageFrequency.toFixed(2)}, Bass Amplitude: ${(data.AmplituteMultiplayer * data.bassAmplitude).toFixed(8)}, RMS: ${data.rms_db.toFixed(8)}, Dominant frequency: ${data.dominantFrequency.frequency.toFixed(0)}, Closest note: ${data.closestNote}`;
         };
 
         websocket.onclose = function () {

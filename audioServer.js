@@ -79,7 +79,6 @@ const audioToWS_Stream = (buffer) => {
     const { averageFrequency, dominantFrequency } = audio.getAverageAndDominantFrequency(frequencies, amplitudes, audio_config.amplitudeThreshold);
     const bassAmplitude = audio.getBassAmplitude(frequencies, amplitudes, audio_config.bassFrequencyRange);
     const closestNote = audio.findClosestNote(dominantFrequency.frequency);
-    //console.log(frequencies)
     const analyzer = audio.analyzer.amplitudes(frequencies, amplitudes, audio_config.analyzerBins, audio_config.minFrequency, audio_config.maxFrequency);
 
     // Emit the data to the websocket if it is connected
@@ -146,6 +145,10 @@ app.ws('/audioStream', {
             isWSConnected = true;
             configur_portAudio(data.sampleRate, data.frameSize, data.audioDeviceID);
             inAudio.start();
+        }
+
+        if (type === 'getDevices') {
+            ws.send(JSON.stringify({ type: 'devices', data: portAudio.getDevices().filter(device => (device.hostAPIName === "MME" || device.hostAPIName === "Windows WDM-KS") && !device.name.includes('@System32')) }));
         }
     });
 

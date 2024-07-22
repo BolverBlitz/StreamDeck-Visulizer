@@ -16,7 +16,7 @@ let firstDevicePath = {};
 
 // Spawn the audioserver.js as a background process
 const audioserverPath = path.join(__dirname, 'audioserver.js');
-const audioserver = fork(audioserverPath);
+const audioserver = fork(audioserverPath, [], { silent: true });
 
 audioserver.on('message', (msg) => {
     console.log(msg.text);
