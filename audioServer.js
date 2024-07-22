@@ -64,12 +64,10 @@ const audioToWS_Stream = (buffer) => {
     }
 
     // Zero-pad the data to increase the hz resolution of the FFT Algorithm
-    /*
     let paddedDataSize = data.length * audio_config.zeroPaddingFactor;
     while (data.length < paddedDataSize) {
         data.push(0);
     }
-    */
 
     let phasors = fft(data);
     // Get frequencies and amplitudes and get rid of higher frequencies than maxFrequency
