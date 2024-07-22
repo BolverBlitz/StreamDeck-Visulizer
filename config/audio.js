@@ -1,6 +1,6 @@
 module.exports = {
     zeroPaddingFactor: 2,
-    multiplyerAjustment: 1,
+    multiplyerAjustment: 2,
     analyzerBins: 2048,
     minFrequency: 20,
     maxFrequency: 20000,

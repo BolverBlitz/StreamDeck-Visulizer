@@ -76,7 +76,7 @@
         websocket.onopen = function () {
           const sampleRate = 44100;
           const frameSize = calculateFrameSize(sampleRate, 30);
-          websocket.send(JSON.stringify({ type: "subscribe", data: { sampleRate: sampleRate, frameSize: frameSize, audioDeviceID: 5 } }));
+          websocket.send(JSON.stringify({ type: "subscribe", data: { sampleRate: sampleRate, frameSize: frameSize, audioDeviceID: 3 } }));
           console.log("WebSocket connection established");
         };
 

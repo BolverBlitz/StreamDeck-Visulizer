@@ -2,8 +2,10 @@ require('module-alias/register')
 require('dotenv').config()
 
 const { openStreamDeck } = require('@elgato-stream-deck/node');
+const { fork } = require('child_process');
 const HID = require('node-hid');
 const { log } = require('@lib/logger');
+const path = require('path');
 const CanvasManager = require('@lib/gfx');
 const AudioAdapter = require('@lib/audio_adapter');
 
@@ -11,6 +13,18 @@ process.log = {};
 process.log = log;
 
 let firstDevicePath = {};
+
+// Spawn the audioserver.js as a background process
+const audioserverPath = path.join(__dirname, 'audioserver.js');
+const audioserver = fork(audioserverPath);
+
+audioserver.on('message', (msg) => {
+    console.log(msg.text);
+});
+
+audioserver.on('error', (err) => {
+    console.error('Failed to start audioserver.js:', err);
+});
 
 HID.devices().forEach(d => {
     if (d.manufacturer === 'Elgato' && d.product.startsWith('Stream Deck')) {
