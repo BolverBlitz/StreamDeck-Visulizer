@@ -45,11 +45,8 @@ HID.devices().forEach(d => {
     const canvasManager = new CanvasManager(streamDeck, 800, 100);
     const audioAdapter = new AudioAdapter();
 
-    const ctx = canvasManager.getContext();
-    const canvas = canvasManager.getCanvas();
-
-    const device = await audioAdapter.selectDevice(ctx, canvas, canvasManager);
-    audioAdapter.startVisualizer(ctx, canvas, canvasManager);
+    const device = await audioAdapter.selectDevice(canvasManager);
+    audioAdapter.startVisualizer(canvasManager);
     //console.log(device);
     // Now you can use ctx to draw directly on the canvas.
 
