@@ -6,42 +6,54 @@
     <style>
       html,
       body {
+        background-color: black;
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
-        overflow: hidden;
       }
-      canvas {
-        display: block;
-      }
+      
       #container {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        height: 100vh; /* 100% of the viewport height */
       }
+
       #waveformCanvas {
-        flex: 1;
+        height: 40vh; /* 40% of the viewport height */
       }
+
       #spectrumCanvas {
-        flex: 1;
+        height: 40vh; /* 40% of the viewport height */
+      }
+
+      #frequencyCanvas {
+        height: 20vh; /* 20% of the viewport height */
       }
     </style>
   </head>
   <body>
     <div id="container">
-      <div id="audio_values"></div>
+      <div id="audio_values" style="color: aqua"></div>
       <canvas id="waveformCanvas"></canvas>
       <canvas id="spectrumCanvas"></canvas>
+      <canvas id="frequencyCanvas"></canvas>
     </div>
 
     <script>
       const waveformCanvas = document.getElementById("waveformCanvas");
       const spectrumCanvas = document.getElementById("spectrumCanvas");
+      const frequencyCanvas = document.getElementById("frequencyCanvas");
       const waveformCtx = waveformCanvas.getContext("2d");
       const spectrumCtx = spectrumCanvas.getContext("2d");
+      const frequencyCtx = frequencyCanvas.getContext("2d");
       let websocket;
       let peaks = [];
+
+      // Set up variables for tracking the graph
+      let frequencyData = []; // Store the recent dominant frequencies
+      const maxDataPoints = frequencyCanvas.width; // Max number of data points to display
+      const yPadding = 2; // Padding for the top and bottom of the graph
 
       function resizeCanvas() {
         waveformCanvas.width = window.innerWidth;
@@ -72,11 +84,14 @@
       }
 
       function connectWebSocket() {
+        let g_sampleRate, g_frameSize;
         websocket = new WebSocket("ws://localhost:7123/audioStream");
 
         websocket.onopen = function () {
           const sampleRate = 44100;
           const frameSize = calculateFrameSize(sampleRate, 30);
+          g_sampleRate = sampleRate;
+          g_frameSize = frameSize;
           websocket.send(JSON.stringify({ type: "subscribe", data: { sampleRate: sampleRate, frameSize: frameSize, audioDeviceID: 3 } }));
           console.log("WebSocket connection established");
         };
@@ -85,7 +100,8 @@
           const { data } = JSON.parse(event.data);
           plotWaveform(data.waveform);
           drawSpectrum(data);
-          document.getElementById("audio_values").innerText = `Avrage frequency: ${data.averageFrequency.toFixed(2)}, Bass Amplitude: ${(data.AmplituteMultiplayer * data.bassAmplitude).toFixed(8)}, RMS: ${data.rms_db.toFixed(8)}, Dominant frequency: ${data.dominantFrequency.frequency.toFixed(0)}, Closest note: ${data.closestNote}`;
+          drawFrequencyGraph(data.dominantFrequency.frequency);
+          document.getElementById("audio_values").innerText = `Avrage frequency: ${data.averageFrequency.toFixed(2)}, Bass Amplitude: ${(data.AmplituteMultiplayer * data.bassAmplitude).toFixed(8)}, RMS: ${data.rms_db.toFixed(8)}, Dominant frequency: ${data.dominantFrequency.frequency.toFixed(0)}, Closest note: ${data.closestNote}, Graph Data: ${frequencyData.length}`;
         };
 
         websocket.onclose = function () {
@@ -98,20 +114,85 @@
         };
       }
 
+      function drawFrequencyGraph(dominantFrequency) {
+        // Add the new frequency data to the array
+        frequencyData.push(dominantFrequency);
+
+        // Keep the data array length within the width of the canvas (scrolling effect)
+        if (frequencyData.length > maxDataPoints) {
+          frequencyData.shift(); // Remove the oldest data point
+        }
+
+        // Clear the canvas for redrawing
+        frequencyCtx.clearRect(0, 0, frequencyCanvas.width, frequencyCanvas.height);
+
+        // Draw the frequency graph
+        frequencyCtx.beginPath();
+        for (let i = 0; i < frequencyData.length; i++) {
+          let x = i;
+          let y = frequencyCanvas.height - (frequencyData[i] / 20000) * (frequencyCanvas.height - yPadding * 2) - yPadding; // Scale the frequency to fit canvas height (assuming max frequency 20,000 Hz)
+
+          if (i === 0) {
+            frequencyCtx.moveTo(x, y);
+          } else {
+            frequencyCtx.lineTo(x, y);
+          }
+        }
+        frequencyCtx.strokeStyle = "rgb(0, 255, 0)";
+        frequencyCtx.lineWidth = 2;
+        frequencyCtx.stroke();
+      }
+
       function plotWaveform(waveform) {
         waveform = normalizeAndCenterWaveform(waveform);
         waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
 
-        waveformCtx.beginPath();
-        waveformCtx.moveTo(0, waveformCanvas.height / 2);
-
-        for (let i = 0; i < waveform.length; i++) {
-          const x = (i / waveform.length) * waveformCanvas.width;
-          const y = ((1 - waveform[i]) * waveformCanvas.height) / 2;
-          waveformCtx.lineTo(x, y);
+        // Function to get the RGB color based on deviation from the center (0.5 as baseline)
+        function getRGBForAmplitude(amplitude) {
+          let distanceFromCenter = Math.abs(amplitude - 0.5); // Calculate distance from 0.5 (baseline)
+          if (distanceFromCenter > 0.33) {
+            return [255, 0, 0]; // Red for peak (near 1 or 0)
+          } else if (distanceFromCenter > 0.16) {
+            return [255, 255, 0]; // Yellow for mid-range
+          } else {
+            return [0, 255, 0]; // Green for low (near 0.5)
+          }
         }
 
-        waveformCtx.stroke();
+        // Helper function to create a gradient for each segment
+        function createGradientForSegment(x1, y1, x2, y2, amplitude1, amplitude2) {
+          let color1 = getRGBForAmplitude(amplitude1);
+          let color2 = getRGBForAmplitude(amplitude2);
+
+          // Create a linear gradient
+          let gradient = waveformCtx.createLinearGradient(x1, y1, x2, y2);
+          gradient.addColorStop(0, `rgb(${color1[0]},${color1[1]},${color1[2]})`);
+          gradient.addColorStop(1, `rgb(${color2[0]},${color2[1]},${color2[2]})`);
+
+          return gradient;
+        }
+
+        // Start drawing the waveform with gradients
+        for (let i = 1; i < waveform.length; i++) {
+          let x1 = ((i - 1) / waveform.length) * waveformCanvas.width;
+
+          // Calculate y1 based on amplitude, treating 0.5 as the baseline
+          let y1 = (1 - waveform[i - 1]) * waveformCanvas.height;
+          let x2 = (i / waveform.length) * waveformCanvas.width;
+          let y2 = (1 - waveform[i]) * waveformCanvas.height;
+
+          // Create a gradient for this segment based on the amplitude
+          let gradient = createGradientForSegment(x1, y1, x2, y2, waveform[i - 1], waveform[i]);
+
+          // Apply the gradient to the strokeStyle
+          waveformCtx.strokeStyle = gradient;
+
+          waveformCtx.beginPath(); // Start a new path for each segment
+          waveformCtx.lineWidth = 2; // Set the line width
+          waveformCtx.moveTo(x1, y1);
+          waveformCtx.lineTo(x2, y2);
+          waveformCtx.stroke(); // Draw the segment with the gradient
+        }
       }
 
       function createGradientColor(barHeight) {
@@ -124,7 +205,7 @@
 
       function drawSpectrum(data) {
         const { analyzer, AmplituteMultiplayer } = data;
-        
+
         // Filter out bars with 0 amplitude
         let filteredData = analyzer.filter((amp) => amp > 0);
 
