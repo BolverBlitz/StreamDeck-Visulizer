@@ -4,10 +4,9 @@ THIS SOFTWARE LISTS ALL AUDIO DEVICES, SOME MIGHT CAUSE A BLUESCREEN/KERNEL PANI
 # Usage
 1. Install dependencies with `npm i`
 2. Create .env File from .env.example
-3. Start AudioServer with `node audioServer.js`
-4. Start Main Application with `node index.js`
-5. User first Dial on Streamdek to select your Audio Output device
-6. Pres the Dial to select it
+3. Start Main Application with `node index.js`
+4. User first Dial on Streamdek to select your Audio Output device
+5. Pres the Dial to select it
 
 ## Usage Tipps
 - Select only "Loopback or Digital Audio Interface" Devices to make sure it works and won´t bluescreen.
