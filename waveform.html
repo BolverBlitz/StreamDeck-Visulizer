@@ -12,7 +12,7 @@
         width: 100%;
         height: 100%;
       }
-      
+
       #container {
         display: flex;
         flex-direction: column;
@@ -27,7 +27,7 @@
         height: 40vh; /* 40% of the viewport height */
       }
 
-      #frequencyCanvas {
+      #bassAmplitudeCanvas {
         height: 20vh; /* 20% of the viewport height */
       }
     </style>
@@ -37,22 +37,20 @@
       <div id="audio_values" style="color: aqua"></div>
       <canvas id="waveformCanvas"></canvas>
       <canvas id="spectrumCanvas"></canvas>
-      <canvas id="frequencyCanvas"></canvas>
+      <canvas id="bassAmplitudeCanvas"></canvas>
     </div>
 
     <script>
       const waveformCanvas = document.getElementById("waveformCanvas");
       const spectrumCanvas = document.getElementById("spectrumCanvas");
-      const frequencyCanvas = document.getElementById("frequencyCanvas");
+      const bassAmplitudeCanvas = document.getElementById("bassAmplitudeCanvas");
       const waveformCtx = waveformCanvas.getContext("2d");
       const spectrumCtx = spectrumCanvas.getContext("2d");
-      const frequencyCtx = frequencyCanvas.getContext("2d");
+      const bassAmpCtx = bassAmplitudeCanvas.getContext("2d");
       let websocket;
       let peaks = [];
 
       // Set up variables for tracking the graph
-      let frequencyData = []; // Store the recent dominant frequencies
-      const maxDataPoints = frequencyCanvas.width; // Max number of data points to display
       const yPadding = 2; // Padding for the top and bottom of the graph
 
       function resizeCanvas() {
@@ -60,6 +58,8 @@
         waveformCanvas.height = window.innerHeight / 2;
         spectrumCanvas.width = window.innerWidth;
         spectrumCanvas.height = window.innerHeight / 2;
+        bassAmplitudeCanvas.width = window.innerWidth;
+        bassAmplitudeCanvas.height = window.innerHeight * 0.2;
       }
 
       const calculateFrameSize = (sampleRate, fps) => {
@@ -98,10 +98,12 @@
 
         websocket.onmessage = function (event) {
           const { data } = JSON.parse(event.data);
+
           plotWaveform(data.waveform);
           drawSpectrum(data);
-          drawFrequencyGraph(data.dominantFrequency.frequency);
-          document.getElementById("audio_values").innerText = `Avrage frequency: ${data.averageFrequency.toFixed(2)}, Bass Amplitude: ${(data.AmplituteMultiplayer * data.bassAmplitude).toFixed(8)}, RMS: ${data.rms_db.toFixed(8)}, Dominant frequency: ${data.dominantFrequency.frequency.toFixed(0)}, Closest note: ${data.closestNote}, Graph Data: ${frequencyData.length}`;
+          updateBassAmpChart(data); // Update and draw the bass amplitude chart
+
+          document.getElementById("audio_values").innerText = `Average frequency: ${data.averageFrequency.toFixed(2)}, Bass Amplitude: ${(data.AmplituteMultiplayer * data.bassAmplitude).toFixed(8)}, RMS: ${data.rms_db.toFixed(8)}, Dominant frequency: ${data.dominantFrequency.frequency.toFixed(0)}, Closest note: ${data.closestNote}`;
         };
 
         websocket.onclose = function () {
@@ -245,6 +247,58 @@
           // Reduce the peak value slowly
           peaks[i] *= 0.98;
         }
+      }
+
+      // Configuration for Bass Amplitude Chart
+      const bassAmpData = [];
+      const maxDuration = 3600; // Store the last 60 seconds
+      let dynamicMaxY = 100; // Dynamic scaling based on the highest value
+
+      // Map amplitude to the Y-axis of the canvas
+      function mapToY(value) {
+        return (1 - value / dynamicMaxY) * (bassAmplitudeCanvas.height - yPadding * 2) + yPadding;
+      }
+
+      // Calculate the dynamic max Y value based on the data
+      function calculateDynamicMaxY() {
+        const maxValue = Math.max(...bassAmpData, 1); // Avoid division by zero
+        dynamicMaxY = Math.max(dynamicMaxY * 0.9, maxValue); // Smooth scaling
+      }
+
+      // Draw the Bass Amplitude Chart
+      function drawBassAmpChart() {
+        // Clear the canvas
+        bassAmpCtx.clearRect(0, 0, bassAmplitudeCanvas.width, bassAmplitudeCanvas.height);
+
+        bassAmpCtx.lineWidth = 2;
+        bassAmpCtx.strokeStyle = "aqua";
+        bassAmpCtx.beginPath();
+
+        for (let i = 0; i < bassAmpData.length; i++) {
+          const x = (i / maxDuration) * bassAmplitudeCanvas.width; // Map time to X-axis
+          const y = mapToY(bassAmpData[i]); // Normalize amplitude
+
+          if (i === 0) {
+            bassAmpCtx.moveTo(x, y);
+          } else {
+            bassAmpCtx.lineTo(x, y);
+          }
+        }
+        bassAmpCtx.stroke();
+
+        bassAmpCtx.fillStyle = "white";
+        bassAmpCtx.font = "12px Arial";
+        bassAmpCtx.fillText(`Max: ${dynamicMaxY.toFixed(2)}`, 10, 20);
+      }
+
+      function updateBassAmpChart(data) {
+        const amplitudeValue = (data.AmplituteMultiplayer * data.bassAmplitude).toFixed(2);
+        bassAmpData.push(amplitudeValue);
+        if (bassAmpData.length > maxDuration) {
+          bassAmpData.shift();
+        }
+        calculateDynamicMaxY();
+        drawBassAmpChart();
       }
 
       window.addEventListener("resize", resizeCanvas);
